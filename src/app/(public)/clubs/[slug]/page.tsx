@@ -19,6 +19,15 @@ function competitionId(name: string | null, achievedOn: string | null): string |
     .digest("hex");
 }
 
+function prettyUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.hostname.replace(/^www\./, "") + (u.pathname === "/" ? "" : u.pathname);
+  } catch {
+    return url;
+  }
+}
+
 export default async function ClubDetailPage({
   params,
 }: {
@@ -28,7 +37,9 @@ export default async function ClubDetailPage({
   const supabase = await createSupabaseServerClient();
   const { data: club } = await supabase
     .from("clubs")
-    .select("id, name, slug")
+    .select(
+      "id, name, slug, code, logo_url, website_url, contact_name, contact_phone",
+    )
     .eq("slug", slug)
     .maybeSingle();
 
@@ -110,17 +121,84 @@ export default async function ClubDetailPage({
       >
         ← Späť na kluby
       </Link>
-      <h1 className="mt-2 text-3xl font-bold tracking-tight">{club.name}</h1>
-      <p className="mb-6 text-sm text-zinc-600 dark:text-zinc-300">
-        {members.length} členov
-      </p>
 
-      <ClubMembersTable
-        members={members}
-        aggregates={aggregates}
-        resultsByMember={resultsByMember}
-        season={season}
-      />
+      <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start">
+        <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+          {club.logo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={club.logo_url}
+              alt={club.name}
+              className="h-full w-full object-contain p-2"
+            />
+          ) : (
+            <span className="font-mono text-xs text-zinc-400">
+              {club.code ?? "—"}
+            </span>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-3xl font-bold tracking-tight">{club.name}</h1>
+            {club.code && (
+              <span className="rounded bg-emerald-100 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+                {club.code}
+              </span>
+            )}
+          </div>
+
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+            {members.length} členov
+          </p>
+
+          <dl className="mt-3 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+            {club.website_url && (
+              <div className="flex gap-2">
+                <dt className="w-20 shrink-0 text-zinc-500">Web</dt>
+                <dd className="min-w-0 truncate">
+                  <a
+                    href={club.website_url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="text-emerald-700 hover:underline dark:text-emerald-400"
+                  >
+                    {prettyUrl(club.website_url)}
+                  </a>
+                </dd>
+              </div>
+            )}
+            {club.contact_name && (
+              <div className="flex gap-2">
+                <dt className="w-20 shrink-0 text-zinc-500">Kontakt</dt>
+                <dd className="min-w-0">{club.contact_name}</dd>
+              </div>
+            )}
+            {club.contact_phone && (
+              <div className="flex gap-2">
+                <dt className="w-20 shrink-0 text-zinc-500">Telefón</dt>
+                <dd className="min-w-0">
+                  <a
+                    href={`tel:${club.contact_phone.replace(/\s+/g, "")}`}
+                    className="hover:underline"
+                  >
+                    {club.contact_phone}
+                  </a>
+                </dd>
+              </div>
+            )}
+          </dl>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <ClubMembersTable
+          members={members}
+          aggregates={aggregates}
+          resultsByMember={resultsByMember}
+          season={season}
+        />
+      </div>
     </PageShell>
   );
 }

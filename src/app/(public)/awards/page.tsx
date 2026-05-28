@@ -1,5 +1,6 @@
 import { PageShell } from "@/components/layout/site-shell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ type AwardRow = {
 
 export default async function AwardsPage() {
   const supabase = await createSupabaseServerClient();
+  const t = await getT();
   const { data: awards } = await supabase
     .from("awards")
     .select(
@@ -34,14 +36,12 @@ export default async function AwardsPage() {
 
   return (
     <PageShell>
-      <h1 className="text-3xl font-bold tracking-tight">Ocenenia</h1>
-      <p className="mb-6 text-sm text-zinc-600 dark:text-zinc-300">
-        Nositelia ocenení WA a SLZ.
-      </p>
+      <h1 className="text-3xl font-bold tracking-tight">{t.awards.title}</h1>
+      <p className="mb-6 text-sm text-zinc-600 dark:text-zinc-300">{t.awards.subtitle}</p>
 
       {(awards?.length ?? 0) === 0 ? (
         <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-10 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900">
-          Žiadne ocenenia. Spustite scrape v admin sekcii.
+          {t.members.empty}
         </div>
       ) : (
         <div className="space-y-6">
@@ -62,7 +62,7 @@ export default async function AwardsPage() {
                                 {member.first_name}
                               </>
                             ) : (
-                              <span className="text-zinc-500">Neznámy člen</span>
+                              <span className="text-zinc-500">—</span>
                             )}
                           </td>
                           <td className="px-4 py-2.5 text-zinc-600 dark:text-zinc-300">

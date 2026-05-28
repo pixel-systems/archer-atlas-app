@@ -8,6 +8,7 @@ export type ScrapeSource =
   | "results_index"
   | "result_pdf"
   | "competitions"
+  | "club_profiles"
   | "all";
 export type ScrapeStatus = "running" | "success" | "failed" | "partial";
 export type ClaimStatus = "pending" | "approved" | "rejected";
@@ -68,8 +69,30 @@ export interface Database {
   public: {
     Tables: {
       clubs: {
-        Row: { id: string; name: string; slug: string; created_at: string };
-        Insert: { id?: string; name: string; slug: string; created_at?: string };
+        Row: {
+          id: string;
+          name: string;
+          slug: string;
+          code: string | null;
+          logo_url: string | null;
+          website_url: string | null;
+          contact_name: string | null;
+          contact_phone: string | null;
+          profile_scraped_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          slug: string;
+          code?: string | null;
+          logo_url?: string | null;
+          website_url?: string | null;
+          contact_name?: string | null;
+          contact_phone?: string | null;
+          profile_scraped_at?: string | null;
+          created_at?: string;
+        };
         Update: Partial<Database["public"]["Tables"]["clubs"]["Insert"]>;
         Relationships: Rels;
       };

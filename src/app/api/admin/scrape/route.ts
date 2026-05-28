@@ -7,6 +7,7 @@ import {
   runMemberDetailsScrape,
   runResultsIndexScrape,
   runCompetitionsRefresh,
+  runClubProfilesScrape,
 } from "@/lib/scrapers/run";
 
 export const runtime = "nodejs";
@@ -41,6 +42,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ outcome: await runResultsIndexScrape(user.id) });
     case "competitions":
       return NextResponse.json({ outcome: await runCompetitionsRefresh(user.id) });
+    case "club_profiles":
+    case "clubs":
+      return NextResponse.json({ outcome: await runClubProfilesScrape(user.id) });
     case "all":
       return NextResponse.json({ outcomes: await runAllScrapes(user.id) });
     default:

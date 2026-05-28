@@ -13,21 +13,23 @@ const geistMono = Geist_Mono({
 });
 
 import { SiteFooter, SiteHeader } from "@/components/layout/site-shell";
+import { getLocale } from "@/lib/i18n/server";
 
 export const metadata: Metadata = {
-  title: "Archer Atlas — SLZ portál",
+  title: "Archer Atlas — SLZ portal",
   description:
-    "Moderné rozhranie pre údaje Slovenského lukostreleckého zväzu: členovia, kluby, výsledky súťaží a ocenenia.",
+    "Modern interface for Slovak Archery Federation data: members, clubs, competition results and awards.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
   return (
     <html
-      lang="sk"
+      lang={locale}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">

@@ -12,7 +12,8 @@ const VALID_SOURCES: ScrapeSource[] = [
   "awards",
   "results_index",
   "result_pdf",
-  "all",
+  "competitions",
+  "club_profiles",
 ];
 
 export async function GET(request: NextRequest) {
