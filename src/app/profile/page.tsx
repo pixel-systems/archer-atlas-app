@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/layout/site-shell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getCurrentUser } from "@/lib/auth/roles";
+import { getCurrentUser, getCurrentRole } from "@/lib/auth/roles";
 import { ProfileForm } from "./profile-form";
 import { ClaimForm } from "./claim-form";
 import { SignOutButton } from "./sign-out-button";
@@ -27,6 +27,13 @@ export default async function ProfilePage() {
 
   const member = Array.isArray(profile?.member) ? profile?.member[0] : profile?.member;
 
+  const role = await getCurrentRole();
+  const { data: rawRoleRow, error: rawRoleErr } = await supabase
+    .from("app_roles")
+    .select("user_id, role")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
   return (
     <PageShell>
       <header className="mb-6 flex items-start justify-between">
@@ -36,6 +43,22 @@ export default async function ProfilePage() {
         </div>
         <SignOutButton />
       </header>
+
+      <section className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs dark:border-amber-900 dark:bg-amber-950">
+        <p className="mb-1 font-semibold text-amber-900 dark:text-amber-200">Debug: rola & identita</p>
+        <ul className="space-y-0.5 font-mono text-amber-900/90 dark:text-amber-100/90">
+          <li>auth.uid() = <code>{user.id}</code></li>
+          <li>email = <code>{user.email}</code></li>
+          <li>detected role = <code>{role ?? "null"}</code></li>
+          <li>app_roles row for me = <code>{rawRoleRow ? JSON.stringify(rawRoleRow) : "none"}</code></li>
+          {rawRoleErr && <li>query error = <code>{rawRoleErr.message}</code></li>}
+        </ul>
+        <p className="mt-2 text-amber-800 dark:text-amber-200/80">
+          Ak je &quot;app_roles row for me&quot; = none, vlož do tabuľky riadok{" "}
+          <code>insert into public.app_roles(user_id, role) values (&apos;{user.id}&apos;, &apos;admin&apos;);</code>{" "}
+          a obnov stránku.
+        </p>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
