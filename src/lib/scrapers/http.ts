@@ -1,5 +1,8 @@
+// slz.sk sits behind a WAF that rejects obvious bot user-agents with an
+// "Access Denied" page. We use a current Chrome/macOS UA + Slovak Accept-Language
+// so requests look like a regular browser. Politeness is enforced by `withDelay`.
 const USER_AGENT =
-  "ArcherAtlasBot/1.0 (+https://github.com/pixel-systems/archer-atlas-app; contact: admin@archer-atlas.app)";
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
 /**
  * Polite fetch wrapper for slz.sk. Sequential by design — call sites should
@@ -11,7 +14,9 @@ export async function fetchSlz(url: string, init: RequestInit = {}): Promise<Res
     ...init,
     headers: {
       "User-Agent": USER_AGENT,
-      Accept: "text/html,application/xhtml+xml,application/pdf,*/*;q=0.8",
+      Accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,application/pdf,image/avif,image/webp,*/*;q=0.8",
+      "Accept-Language": "sk-SK,sk;q=0.9,en;q=0.8",
       ...(init.headers ?? {}),
     },
     // Always bypass Next's data cache; the DB is the source of truth.

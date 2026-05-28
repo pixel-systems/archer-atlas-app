@@ -4,6 +4,7 @@ import {
   runAllScrapes,
   runAwardsScrape,
   runMembersScrape,
+  runMemberDetailsScrape,
   runResultsIndexScrape,
 } from "@/lib/scrapers/run";
 
@@ -19,10 +20,19 @@ export async function POST(request: NextRequest) {
 
   const url = new URL(request.url);
   const source = (url.searchParams.get("source") ?? "all").toLowerCase();
+  const limitRaw = url.searchParams.get("limit");
+  const limit = limitRaw === "all" ? null : limitRaw ? Number.parseInt(limitRaw, 10) : undefined;
 
   switch (source) {
     case "members":
       return NextResponse.json({ outcome: await runMembersScrape(user.id) });
+    case "member_details":
+    case "members_details":
+      return NextResponse.json({
+        outcome: await runMemberDetailsScrape(user.id, {
+          limit: limit === undefined ? 30 : limit,
+        }),
+      });
     case "awards":
       return NextResponse.json({ outcome: await runAwardsScrape(user.id) });
     case "results_index":

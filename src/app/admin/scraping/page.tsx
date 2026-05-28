@@ -18,7 +18,7 @@ export default async function AdminScrapingPage() {
         <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-300">
           Manuálne spustenie. Plánovaný (cron) beh prebieha denne o 03:00 UTC.
         </p>
-        <ScrapeControls />
+        <ScrapeControls resumeSources={["all", "members", "member_details", "awards", "results_index"]} />
       </section>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
@@ -53,7 +53,13 @@ export default async function AdminScrapingPage() {
                   </td>
                   <td className="px-4 py-2.5 text-zinc-600 dark:text-zinc-300">
                     {r.items_processed}
+                    {r.items_total ? ` / ${r.items_total}` : ""}
                     {r.items_failed > 0 ? ` (${r.items_failed} chýb)` : ""}
+                    {r.status === "running" && r.current_item ? (
+                      <div className="mt-0.5 truncate text-xs text-zinc-500" title={r.current_item}>
+                        → {r.current_item}
+                      </div>
+                    ) : null}
                   </td>
                   <td className="px-4 py-2.5 text-xs text-zinc-500">
                     {r.errors ? JSON.stringify(r.errors).slice(0, 80) : "—"}

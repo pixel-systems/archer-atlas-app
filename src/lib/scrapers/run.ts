@@ -4,6 +4,8 @@ import type { Database, ScrapeSource, ScrapeStatus } from "@/lib/supabase/types"
 import { scrapeMembers, type ScrapedMember } from "./members";
 import { scrapeAwards } from "./awards";
 import { scrapeResultsIndex, scrapeResultsArchive } from "./results-index";
+import { scrapeMemberDetail, memberDetailUrl, type DetailRow } from "./member-detail";
+import { withDelay } from "./http";
 
 type Admin = SupabaseClient<Database>;
 
@@ -228,4 +230,211 @@ export async function runAllScrapes(triggeredBy: string | null = null): Promise<
   const awards = await runAwardsScrape(triggeredBy);
   const results = await runResultsIndexScrape(triggeredBy);
   return [members, awards, results];
+}
+
+// ----------------------------------------------------------------------------
+// Member details (per-member profile + per-year results)
+// ----------------------------------------------------------------------------
+
+export interface MemberDetailsRunOptions {
+  /** Process at most this many members per run. Defaults to 30 to stay under
+   * serverless timeouts. Set to null to process all stale members. */
+  limit?: number | null;
+  /** Re-enrich members whose `detail_scraped_at` is older than this many days.
+   * Members that have never been enriched are always picked first. */
+  staleAfterDays?: number;
+  /** Delay between member detail fetches (ms). */
+  delayMs?: number;
+}
+
+function detailRowToSeasonInsert(
+  memberId: string,
+  season: number,
+  row: DetailRow,
+  isSeasonMax: boolean,
+) {
+  return {
+    member_id: memberId,
+    season,
+    score: row.score,
+    achieved_on: row.achievedOn,
+    competition_name: row.competitionName || null,
+    discipline: row.discipline || null,
+    setup: row.setup || null,
+    category: row.category || null,
+    division: row.division || null,
+    is_season_max: isSeasonMax,
+  };
+}
+
+function detailRowToPbInsert(memberId: string, row: DetailRow) {
+  return {
+    member_id: memberId,
+    score: row.score,
+    achieved_on: row.achievedOn,
+    competition_name: row.competitionName || null,
+    discipline: row.discipline || null,
+    setup: row.setup || null,
+    category: row.category || null,
+    division: row.division || null,
+  };
+}
+
+export async function runMemberDetailsScrape(
+  triggeredBy: string | null = null,
+  options: MemberDetailsRunOptions = {},
+): Promise<RunOutcome> {
+  const limit = options.limit === null ? null : options.limit ?? 30;
+  const staleAfterDays = options.staleAfterDays ?? 7;
+  const delayMs = options.delayMs ?? 600;
+
+  const db = createSupabaseAdminClient();
+  const runId = await startRun(db, "member_details", triggeredBy);
+  const errors: string[] = [];
+  let processed = 0;
+  let failed = 0;
+
+  try {
+    // Pick targets: members with an slz_id, never enriched OR stale enrichment.
+    const staleCutoff = new Date(Date.now() - staleAfterDays * 24 * 60 * 60 * 1000).toISOString();
+
+    let query = db
+      .from("members")
+      .select("id, slz_id, first_name, last_name, license_number, detail_scraped_at")
+      .not("slz_id", "is", null)
+      .or(`detail_scraped_at.is.null,detail_scraped_at.lt.${staleCutoff}`)
+      // Never-enriched first (nulls first via ascending), then oldest enrichment.
+      .order("detail_scraped_at", { ascending: true, nullsFirst: true });
+
+    if (limit != null) query = query.limit(limit);
+
+    const { data: targets, error: pickErr } = await query;
+    if (pickErr) throw new Error(`pick targets: ${pickErr.message}`);
+
+    const items = (targets ?? []).filter(
+      (m): m is {
+        id: string;
+        slz_id: number;
+        first_name: string;
+        last_name: string;
+        license_number: string;
+        detail_scraped_at: string | null;
+      } => m.slz_id != null,
+    );
+
+    // Publish the total up-front so the UI can render a progress bar.
+    await db
+      .from("scrape_runs")
+      .update({ items_total: items.length, progress_updated_at: new Date().toISOString() })
+      .eq("id", runId);
+
+    let index = 0;
+    await withDelay(items, delayMs, async (m) => {
+      index += 1;
+      const label = `${m.last_name} ${m.first_name} (#${m.license_number})`;
+      // Announce which member is currently being processed BEFORE the fetch.
+      await db
+        .from("scrape_runs")
+        .update({
+          current_item: label,
+          current_item_index: index,
+          progress_updated_at: new Date().toISOString(),
+        })
+        .eq("id", runId);
+
+      try {
+        const detail = await scrapeMemberDetail(m.slz_id, { delayMs });
+
+        // Replace personal bests for this member.
+        const pbDel = await db.from("member_personal_bests").delete().eq("member_id", m.id);
+        if (pbDel.error) throw new Error(`pb delete: ${pbDel.error.message}`);
+        if (detail.personalBests.length > 0) {
+          const { error: pbErr } = await db
+            .from("member_personal_bests")
+            .insert(detail.personalBests.map((r) => detailRowToPbInsert(m.id, r)));
+          if (pbErr) throw new Error(`pb insert: ${pbErr.message}`);
+        }
+
+        // Replace season results across all known years for this member.
+        const srDel = await db.from("member_season_results").delete().eq("member_id", m.id);
+        if (srDel.error) throw new Error(`sr delete: ${srDel.error.message}`);
+
+        // Build a set of (year|date|competition|discipline|setup) keys that
+        // appear in the season-maxes table for the current year so we can mark
+        // the corresponding rows.
+        const maxKeys = new Set(
+          detail.seasonMaxes.map(
+            (r) => `${r.achievedOn}|${r.competitionName}|${r.discipline}|${r.setup}`,
+          ),
+        );
+
+        const inserts: ReturnType<typeof detailRowToSeasonInsert>[] = [];
+        for (const [year, rows] of detail.seasonResultsByYear.entries()) {
+          for (const r of rows) {
+            const k = `${r.achievedOn}|${r.competitionName}|${r.discipline}|${r.setup}`;
+            inserts.push(detailRowToSeasonInsert(m.id, year, r, maxKeys.has(k)));
+          }
+        }
+        if (inserts.length > 0) {
+          // Chunked insert
+          const size = 500;
+          for (let i = 0; i < inserts.length; i += size) {
+            const { error } = await db
+              .from("member_season_results")
+              .insert(inserts.slice(i, i + size));
+            if (error) throw new Error(`sr insert: ${error.message}`);
+          }
+        }
+
+        // Update member metadata.
+        const { error: upErr } = await db
+          .from("members")
+          .update({
+            detail_scraped_at: new Date().toISOString(),
+            detail_url: memberDetailUrl(m.slz_id),
+          })
+          .eq("id", m.id);
+        if (upErr) throw new Error(`member update: ${upErr.message}`);
+
+        processed += 1;
+      } catch (err) {
+        failed += 1;
+        const message = err instanceof Error ? err.message : String(err);
+        errors.push(`slz_id=${m.slz_id}: ${message}`);
+      }
+
+      // Publish counters after each member so the modal progress bar moves.
+      await db
+        .from("scrape_runs")
+        .update({
+          items_processed: processed,
+          items_failed: failed,
+          progress_updated_at: new Date().toISOString(),
+        })
+        .eq("id", runId);
+    });
+
+    const status: ScrapeStatus = failed === 0 ? "success" : "partial";
+    await finishRun(db, runId, status, processed, failed, errors);
+    return {
+      source: "member_details",
+      status,
+      itemsProcessed: processed,
+      itemsFailed: failed,
+      errors,
+      runId,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    errors.push(message);
+    await finishRun(db, runId, "failed", processed, failed, errors);
+    return {
+      source: "member_details",
+      status: "failed",
+      itemsProcessed: processed,
+      itemsFailed: failed,
+      errors,
+      runId,
+    };
+  }
 }
