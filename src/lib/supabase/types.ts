@@ -7,6 +7,7 @@ export type ScrapeSource =
   | "awards"
   | "results_index"
   | "result_pdf"
+  | "competitions"
   | "all";
 export type ScrapeStatus = "running" | "success" | "failed" | "partial";
 export type ClaimStatus = "pending" | "approved" | "rejected";
@@ -235,8 +236,53 @@ export interface Database {
         Relationships: Rels;
       };
     };
-    Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
+    Views: {
+      competition_overview: {
+        Row: {
+          id: string;
+          name: string;
+          held_on: string | null;
+          season: number | null;
+          entries_count: number;
+          athletes_count: number;
+          clubs_count: number;
+          top_score: number | null;
+          disciplines: string[] | null;
+          divisions: string[] | null;
+          categories: string[] | null;
+        };
+        Relationships: Rels;
+      };
+      competition_entries: {
+        Row: {
+          competition_id: string;
+          entry_id: string;
+          member_id: string;
+          license_number: string;
+          first_name: string;
+          last_name: string;
+          club_id: string | null;
+          club_name: string | null;
+          club_slug: string | null;
+          competition_name: string | null;
+          achieved_on: string | null;
+          season: number | null;
+          score: number | null;
+          discipline: string | null;
+          setup: string | null;
+          category: string | null;
+          division: string | null;
+          is_season_max: boolean | null;
+        };
+        Relationships: Rels;
+      };
+    };
+    Functions: {
+      refresh_competition_views: {
+        Args: Record<string, never>;
+        Returns: void;
+      };
+    };
     Enums: { [_ in never]: never };
   };
 }
