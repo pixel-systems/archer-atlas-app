@@ -38,8 +38,16 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
 
   const { data: members, error, count } = await query;
 
+  // Global enriched-count (across ALL members, not just this page). HEAD query, cheap.
+  const { count: globalEnrichedCount } = await supabase
+    .from("members")
+    .select("id", { count: "exact", head: true })
+    .not("detail_scraped_at", "is", null);
+  const globalEnriched = globalEnrichedCount ?? 0;
+
   const total = count ?? 0;
   const pageRowsEnriched = (members ?? []).filter((m) => m.detail_scraped_at != null).length;
+  const globalPct = total > 0 ? Math.round((globalEnriched / total) * 100) : 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const buildHref = (p: number) => {
     const params = new URLSearchParams();
@@ -60,8 +68,10 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
               <>
                 {" "}
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-                  <CheckCircle2 className="h-3 w-3" /> {pageRowsEnriched} / {members?.length ?? 0} na strane ·{" "}
-                  {total} celkom
+                  <CheckCircle2 className="h-3 w-3" /> {pageRowsEnriched} / {members?.length ?? 0} na strane
+                </span>{" "}
+                <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                  Celkom: {globalEnriched.toLocaleString("sk-SK")} / {total.toLocaleString("sk-SK")} s detailom ({globalPct}%)
                 </span>
               </>
             )}
