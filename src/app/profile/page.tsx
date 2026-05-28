@@ -48,7 +48,15 @@ export default async function ProfilePage() {
           <h1 className="text-3xl font-bold tracking-tight">Môj profil</h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-300">{user.email}</p>
         </div>
-        <SignOutButton />
+        <div className="flex items-center gap-2">
+          <a
+            href="/profile/training"
+            className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
+          >
+            Tréningové denníky →
+          </a>
+          <SignOutButton />
+        </div>
       </header>
 
       <section className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs dark:border-amber-900 dark:bg-amber-950">

@@ -15,6 +15,55 @@ export type AppRole = "user" | "admin";
 
 type Rels = [];
 
+// ---------- Training journal row types (referenced by Database below) ----------
+
+export interface TrainingFormatRow {
+  id: string;
+  code: string;
+  organisation: "WA" | "IFAA" | "OTHER";
+  name: string;
+  discipline: string;
+  scoring_type: string;
+  max_score: number | null;
+  default_distances: Array<{
+    label: string;
+    ends: number;
+    arrows_per_end: number;
+    max_per_arrow: number;
+  }>;
+  sort_order: number;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface TrainingSessionRow {
+  id: string;
+  user_id: string;
+  format_id: string;
+  session_date: string;
+  division: string | null;
+  age_category: string | null;
+  bow_style: string | null;
+  location: string | null;
+  weather: string | null;
+  notes: string | null;
+  total_score: number | null;
+  total_arrows: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TrainingSessionEndRow {
+  id: string;
+  session_id: string;
+  sort_order: number;
+  distance_label: string | null;
+  end_number: number;
+  arrows: string[];
+  end_total: number | null;
+  created_at: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -235,6 +284,106 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["member_season_results"]["Insert"]>;
         Relationships: Rels;
       };
+      training_formats: {
+        Row: {
+          id: string;
+          code: string;
+          organisation: "WA" | "IFAA" | "OTHER";
+          name: string;
+          discipline: string;
+          scoring_type: string;
+          max_score: number | null;
+          default_distances: Array<{
+            label: string;
+            ends: number;
+            arrows_per_end: number;
+            max_per_arrow: number;
+          }>;
+          sort_order: number;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          code: string;
+          organisation: "WA" | "IFAA" | "OTHER";
+          name: string;
+          discipline: string;
+          scoring_type: string;
+          max_score?: number | null;
+          default_distances?: Array<{
+            label: string;
+            ends: number;
+            arrows_per_end: number;
+            max_per_arrow: number;
+          }>;
+          sort_order?: number;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["training_formats"]["Insert"]>;
+        Relationships: Rels;
+      };
+      training_sessions: {
+        Row: {
+          id: string;
+          user_id: string;
+          format_id: string;
+          session_date: string;
+          division: string | null;
+          age_category: string | null;
+          bow_style: string | null;
+          location: string | null;
+          weather: string | null;
+          notes: string | null;
+          total_score: number | null;
+          total_arrows: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          format_id: string;
+          session_date: string;
+          division?: string | null;
+          age_category?: string | null;
+          bow_style?: string | null;
+          location?: string | null;
+          weather?: string | null;
+          notes?: string | null;
+          total_score?: number | null;
+          total_arrows?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["training_sessions"]["Insert"]>;
+        Relationships: Rels;
+      };
+      training_session_ends: {
+        Row: {
+          id: string;
+          session_id: string;
+          sort_order: number;
+          distance_label: string | null;
+          end_number: number;
+          arrows: string[];
+          end_total: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          session_id: string;
+          sort_order: number;
+          distance_label?: string | null;
+          end_number: number;
+          arrows?: string[];
+          end_total?: number | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["training_session_ends"]["Insert"]>;
+        Relationships: Rels;
+      };
     };
     Views: {
       competition_overview: {
@@ -286,3 +435,7 @@ export interface Database {
     Enums: { [_ in never]: never };
   };
 }
+
+// ---------- Training journal (separate augmentation of Database typed surface) ----------
+// (interfaces defined above the Database declaration)
+
