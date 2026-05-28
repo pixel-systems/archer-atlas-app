@@ -3,17 +3,17 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink, Trophy } from "lucide-react";
 import { PageShell } from "@/components/layout/site-shell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { SeasonResultsSection, type ClientResultRow } from "./season-results";
 
 interface MemberDetailPageProps {
   params: Promise<{ license: string }>;
-  searchParams: Promise<{ year?: string }>;
 }
 
-export const dynamic = "force-dynamic";
+// Short ISR-style cache; data is scraped at most a few times a day so 60s is plenty.
+export const revalidate = 60;
 
-export default async function MemberDetailPage({ params, searchParams }: MemberDetailPageProps) {
+export default async function MemberDetailPage({ params }: MemberDetailPageProps) {
   const { license } = await params;
-  const { year: yearStr } = await searchParams;
   const supabase = await createSupabaseServerClient();
 
   const { data: member, error: memberError } = await supabase
@@ -35,32 +35,20 @@ export default async function MemberDetailPage({ params, searchParams }: MemberD
 
   const club = Array.isArray(member.club) ? member.club[0] : member.club;
 
-  // Personal bests + all season results in two queries.
   const [{ data: personalBests }, { data: seasonResults }] = await Promise.all([
     supabase
       .from("member_personal_bests")
-      .select("*")
+      .select("id, score, achieved_on, competition_name, discipline, setup, category, division")
       .eq("member_id", member.id)
       .order("score", { ascending: false }),
     supabase
       .from("member_season_results")
-      .select("*")
+      .select(
+        "id, score, achieved_on, competition_name, discipline, setup, category, division, is_season_max, season",
+      )
       .eq("member_id", member.id)
       .order("achieved_on", { ascending: false }),
   ]);
-
-  const years = Array.from(
-    new Set((seasonResults ?? []).map((r) => r.season).filter((s): s is number => s != null)),
-  ).sort((a, b) => b - a);
-  const requestedYear = yearStr ? Number.parseInt(yearStr, 10) : NaN;
-  const selectedYear =
-    Number.isFinite(requestedYear) && years.includes(requestedYear)
-      ? requestedYear
-      : (years[0] ?? null);
-  const yearRows =
-    selectedYear == null
-      ? []
-      : (seasonResults ?? []).filter((r) => r.season === selectedYear);
 
   const enriched = member.detail_scraped_at != null;
 
@@ -94,9 +82,7 @@ export default async function MemberDetailPage({ params, searchParams }: MemberD
               {member.birth_year ? ` · ${member.birth_year}` : ""}
             </p>
             <div className="mt-3 flex flex-wrap gap-2 text-xs">
-              {member.category_target && (
-                <Badge>Terč: {member.category_target}</Badge>
-              )}
+              {member.category_target && <Badge>Terč: {member.category_target}</Badge>}
               {member.category_3d && <Badge>3D: {member.category_3d}</Badge>}
               {enriched ? (
                 <Badge tone="success">
@@ -139,32 +125,18 @@ export default async function MemberDetailPage({ params, searchParams }: MemberD
             {(personalBests ?? []).length === 0 ? (
               <p className="text-sm text-zinc-500">Žiadne osobné maximá zaznamenané.</p>
             ) : (
-              <ResultsTable rows={personalBests ?? []} highlightTopScore />
+              <PersonalBestsTable rows={personalBests ?? []} />
             )}
           </section>
 
-          <section className="rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-              <h2 className="text-lg font-semibold tracking-tight">Výsledky v sezóne</h2>
-              {years.length > 0 && (
-                <YearTabs license={member.license_number} years={years} current={selectedYear} />
-              )}
-            </div>
-            {selectedYear == null ? (
-              <p className="text-sm text-zinc-500">Žiadne výsledky.</p>
-            ) : yearRows.length === 0 ? (
-              <p className="text-sm text-zinc-500">V sezóne {selectedYear} žiadne výsledky.</p>
-            ) : (
-              <ResultsTable rows={yearRows} />
-            )}
-          </section>
+          <SeasonResultsSection rows={(seasonResults ?? []) as ClientResultRow[]} />
         </>
       )}
     </PageShell>
   );
 }
 
-interface ResultRow {
+interface PbRow {
   id: string;
   score: number | null;
   achieved_on: string | null;
@@ -173,16 +145,9 @@ interface ResultRow {
   setup: string | null;
   category: string | null;
   division: string | null;
-  is_season_max?: boolean;
 }
 
-function ResultsTable({
-  rows,
-  highlightTopScore = false,
-}: {
-  rows: ResultRow[];
-  highlightTopScore?: boolean;
-}) {
+function PersonalBestsTable({ rows }: { rows: PbRow[] }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
       <table className="w-full text-sm">
@@ -200,22 +165,11 @@ function ResultsTable({
         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
           {rows.map((r) => (
             <tr key={r.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
-              <Td
-                className={`font-mono font-semibold ${
-                  highlightTopScore ? "text-amber-600 dark:text-amber-400" : ""
-                }`}
-              >
+              <Td className="font-mono font-semibold text-amber-600 dark:text-amber-400">
                 {r.score ?? "—"}
-                {r.is_season_max && (
-                  <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium uppercase text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-                    Max
-                  </span>
-                )}
               </Td>
               <Td className="text-zinc-500">
-                {r.achieved_on
-                  ? new Date(r.achieved_on).toLocaleDateString("sk-SK")
-                  : "—"}
+                {r.achieved_on ? new Date(r.achieved_on).toLocaleDateString("sk-SK") : "—"}
               </Td>
               <Td>{r.competition_name ?? "—"}</Td>
               <Td className="text-zinc-600 dark:text-zinc-300">{r.discipline ?? "—"}</Td>
@@ -226,35 +180,6 @@ function ResultsTable({
           ))}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-function YearTabs({
-  license,
-  years,
-  current,
-}: {
-  license: string;
-  years: number[];
-  current: number | null;
-}) {
-  return (
-    <div className="flex flex-wrap gap-1">
-      {years.map((y) => (
-        <Link
-          key={y}
-          href={`/members/${license}?year=${y}`}
-          scroll={false}
-          className={`rounded-md border px-2.5 py-1 text-xs font-medium ${
-            y === current
-              ? "border-emerald-600 bg-emerald-600 text-white"
-              : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          }`}
-        >
-          {y}
-        </Link>
-      ))}
     </div>
   );
 }
