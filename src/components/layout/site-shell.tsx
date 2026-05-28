@@ -20,6 +20,7 @@ export async function SiteHeader() {
           <NavLink href="/competitions" label="Súťaže" />
           <NavLink href="/results" label="Výsledky" />
           <NavLink href="/awards" label="Ocenenia" />
+          <NavLink href="/calendar" label="Kalendár" />
         </nav>
         <div className="flex items-center gap-3 text-sm">
           {role === "admin" && (
