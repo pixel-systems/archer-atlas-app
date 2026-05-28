@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { createHash } from "node:crypto";
 import { ArrowLeft, ExternalLink, Trophy } from "lucide-react";
 import { PageShell } from "@/components/layout/site-shell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -7,6 +8,13 @@ import { SeasonResultsSection, type ClientResultRow } from "./season-results";
 
 interface MemberDetailPageProps {
   params: Promise<{ license: string }>;
+}
+
+function competitionId(name: string | null, achievedOn: string | null): string | null {
+  if (!name && !achievedOn) return null;
+  return createHash("md5")
+    .update(`${name ?? ""}|${achievedOn ?? ""}`)
+    .digest("hex");
 }
 
 // Short ISR-style cache; data is scraped at most a few times a day so 60s is plenty.
@@ -129,7 +137,12 @@ export default async function MemberDetailPage({ params }: MemberDetailPageProps
             )}
           </section>
 
-          <SeasonResultsSection rows={(seasonResults ?? []) as ClientResultRow[]} />
+          <SeasonResultsSection
+            rows={(seasonResults ?? []).map((r) => ({
+              ...r,
+              competition_id: competitionId(r.competition_name, r.achieved_on),
+            })) as ClientResultRow[]}
+          />
         </>
       )}
     </PageShell>
@@ -163,21 +176,39 @@ function PersonalBestsTable({ rows }: { rows: PbRow[] }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-          {rows.map((r) => (
-            <tr key={r.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
-              <Td className="font-mono font-semibold text-amber-600 dark:text-amber-400">
-                {r.score ?? "—"}
-              </Td>
-              <Td className="text-zinc-500">
-                {r.achieved_on ? new Date(r.achieved_on).toLocaleDateString("sk-SK") : "—"}
-              </Td>
-              <Td>{r.competition_name ?? "—"}</Td>
-              <Td className="text-zinc-600 dark:text-zinc-300">{r.discipline ?? "—"}</Td>
-              <Td className="text-xs text-zinc-500">{r.setup ?? "—"}</Td>
-              <Td>{r.category ?? "—"}</Td>
-              <Td>{r.division ?? "—"}</Td>
-            </tr>
-          ))}
+          {rows.map((r) => {
+            const compId = competitionId(r.competition_name, r.achieved_on);
+            return (
+              <tr key={r.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
+                <Td className="font-mono font-semibold text-amber-600 dark:text-amber-400">
+                  {r.score ?? "—"}
+                </Td>
+                <Td className="text-zinc-500">
+                  {r.achieved_on ? new Date(r.achieved_on).toLocaleDateString("sk-SK") : "—"}
+                </Td>
+                <Td>
+                  {compId && r.competition_name ? (
+                    <Link
+                      href={`/competitions/${compId}${
+                        r.category ? `?category=${encodeURIComponent(r.category)}` : ""
+                      }`}
+                      className="text-emerald-700 hover:underline dark:text-emerald-400"
+                      prefetch={false}
+                      title="Zobraziť výsledky súťaže v tejto kategórii"
+                    >
+                      {r.competition_name}
+                    </Link>
+                  ) : (
+                    r.competition_name ?? "—"
+                  )}
+                </Td>
+                <Td className="text-zinc-600 dark:text-zinc-300">{r.discipline ?? "—"}</Td>
+                <Td className="text-xs text-zinc-500">{r.setup ?? "—"}</Td>
+                <Td>{r.category ?? "—"}</Td>
+                <Td>{r.division ?? "—"}</Td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

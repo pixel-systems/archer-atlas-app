@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { createHash } from "node:crypto";
 import { PageShell } from "@/components/layout/site-shell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
@@ -10,6 +11,13 @@ import {
 } from "./club-members";
 
 export const revalidate = 60;
+
+function competitionId(name: string | null, achievedOn: string | null): string | null {
+  if (!name && !achievedOn) return null;
+  return createHash("md5")
+    .update(`${name ?? ""}|${achievedOn ?? ""}`)
+    .digest("hex");
+}
 
 export default async function ClubDetailPage({
   params,
@@ -62,7 +70,10 @@ export default async function ClubDetailPage({
       .in("member_id", memberIds)
       .eq("season", season);
 
-    const all = (results ?? []) as ClubResultRow[];
+    const all = ((results ?? []) as Omit<ClubResultRow, "competition_id">[]).map((r) => ({
+      ...r,
+      competition_id: competitionId(r.competition_name, r.achieved_on),
+    })) as ClubResultRow[];
     resultsByMember = all.reduce<Record<string, ClubResultRow[]>>((acc, r) => {
       (acc[r.member_id] ??= []).push(r);
       return acc;

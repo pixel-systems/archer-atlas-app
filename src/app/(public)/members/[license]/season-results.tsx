@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 
 export interface ClientResultRow {
   id: string;
   score: number | null;
   achieved_on: string | null;
   competition_name: string | null;
+  competition_id: string | null;
   discipline: string | null;
   setup: string | null;
   category: string | null;
@@ -87,7 +89,22 @@ export function SeasonResultsSection({ rows }: { rows: ClientResultRow[] }) {
                   <Td className="text-zinc-500">
                     {r.achieved_on ? new Date(r.achieved_on).toLocaleDateString("sk-SK") : "—"}
                   </Td>
-                  <Td>{r.competition_name ?? "—"}</Td>
+                  <Td>
+                    {r.competition_id && r.competition_name ? (
+                      <Link
+                        href={`/competitions/${r.competition_id}${
+                          r.category ? `?category=${encodeURIComponent(r.category)}` : ""
+                        }`}
+                        className="text-emerald-700 hover:underline dark:text-emerald-400"
+                        prefetch={false}
+                        title="Zobraziť výsledky súťaže v tejto kategórii"
+                      >
+                        {r.competition_name}
+                      </Link>
+                    ) : (
+                      r.competition_name ?? "—"
+                    )}
+                  </Td>
                   <Td className="text-zinc-600 dark:text-zinc-300">{r.discipline ?? "—"}</Td>
                   <Td className="text-xs text-zinc-500">{r.setup ?? "—"}</Td>
                   <Td>{r.category ?? "—"}</Td>

@@ -10,6 +10,7 @@ export interface ClubResultRow {
   score: number | null;
   achieved_on: string | null;
   competition_name: string | null;
+  competition_id: string | null;
   discipline: string | null;
   setup: string | null;
   category: string | null;
@@ -291,7 +292,24 @@ function MemberModal({
                             ? new Date(r.achieved_on).toLocaleDateString("sk-SK")
                             : "—"}
                         </td>
-                        <td className="px-3 py-2">{r.competition_name ?? "—"}</td>
+                        <td className="px-3 py-2">
+                          {r.competition_id && r.competition_name ? (
+                            <Link
+                              href={`/competitions/${r.competition_id}${
+                                r.category
+                                  ? `?category=${encodeURIComponent(r.category)}`
+                                  : ""
+                              }`}
+                              className="text-emerald-700 hover:underline dark:text-emerald-400"
+                              prefetch={false}
+                              title="Zobraziť výsledky súťaže v tejto kategórii"
+                            >
+                              {r.competition_name}
+                            </Link>
+                          ) : (
+                            r.competition_name ?? "—"
+                          )}
+                        </td>
                         <td className="px-3 py-2 text-zinc-600 dark:text-zinc-300">
                           {r.discipline ?? "—"}
                         </td>
