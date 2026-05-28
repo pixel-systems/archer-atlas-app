@@ -438,3 +438,50 @@ export async function runMemberDetailsScrape(
     };
   }
 }
+
+// ----------------------------------------------------------------------------
+// Competition views (materialized views derived from member_season_results)
+// ----------------------------------------------------------------------------
+
+export async function runCompetitionsRefresh(
+  triggeredBy: string | null = null,
+): Promise<RunOutcome> {
+  const db = createSupabaseAdminClient();
+  const runId = await startRun(db, "competitions", triggeredBy);
+  const errors: string[] = [];
+
+  try {
+    // The function is SECURITY DEFINER and lives in public schema.
+    const { error } = await db.rpc("refresh_competition_views");
+    if (error) throw new Error(error.message);
+
+    // Count what we have for the run summary.
+    const { count, error: countErr } = await db
+      .from("competition_overview")
+      .select("id", { count: "exact", head: true });
+    if (countErr) errors.push(`overview count: ${countErr.message}`);
+
+    const processed = count ?? 0;
+    await finishRun(db, runId, "success", processed, 0, errors);
+    return {
+      source: "competitions",
+      status: "success",
+      itemsProcessed: processed,
+      itemsFailed: 0,
+      errors,
+      runId,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    errors.push(message);
+    await finishRun(db, runId, "failed", 0, 0, errors);
+    return {
+      source: "competitions",
+      status: "failed",
+      itemsProcessed: 0,
+      itemsFailed: 0,
+      errors,
+      runId,
+    };
+  }
+}

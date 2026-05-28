@@ -17,6 +17,7 @@ export async function SiteHeader() {
         <nav className="hidden gap-5 text-sm text-zinc-600 sm:flex dark:text-zinc-300">
           <NavLink href="/members" label="Členovia" />
           <NavLink href="/clubs" label="Kluby" />
+          <NavLink href="/competitions" label="Súťaže" />
           <NavLink href="/results" label="Výsledky" />
           <NavLink href="/awards" label="Ocenenia" />
         </nav>

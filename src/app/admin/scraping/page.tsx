@@ -18,7 +18,7 @@ export default async function AdminScrapingPage() {
         <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-300">
           Manuálne spustenie. Plánovaný (cron) beh prebieha denne o 03:00 UTC.
         </p>
-        <ScrapeControls resumeSources={["all", "members", "member_details", "awards", "results_index"]} />
+        <ScrapeControls resumeSources={["all", "members", "member_details", "awards", "results_index", "competitions"]} />
       </section>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
