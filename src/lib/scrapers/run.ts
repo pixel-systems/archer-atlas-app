@@ -300,7 +300,7 @@ export async function runMemberDetailsScrape(
 
     let query = db
       .from("members")
-      .select("id, slz_id, detail_scraped_at")
+      .select("id, slz_id, first_name, last_name, license_number, detail_scraped_at")
       .not("slz_id", "is", null)
       .or(`detail_scraped_at.is.null,detail_scraped_at.lt.${staleCutoff}`)
       // Never-enriched first (nulls first via ascending), then oldest enrichment.
@@ -312,10 +312,36 @@ export async function runMemberDetailsScrape(
     if (pickErr) throw new Error(`pick targets: ${pickErr.message}`);
 
     const items = (targets ?? []).filter(
-      (m): m is { id: string; slz_id: number; detail_scraped_at: string | null } => m.slz_id != null,
+      (m): m is {
+        id: string;
+        slz_id: number;
+        first_name: string;
+        last_name: string;
+        license_number: string;
+        detail_scraped_at: string | null;
+      } => m.slz_id != null,
     );
 
+    // Publish the total up-front so the UI can render a progress bar.
+    await db
+      .from("scrape_runs")
+      .update({ items_total: items.length, progress_updated_at: new Date().toISOString() })
+      .eq("id", runId);
+
+    let index = 0;
     await withDelay(items, delayMs, async (m) => {
+      index += 1;
+      const label = `${m.last_name} ${m.first_name} (#${m.license_number})`;
+      // Announce which member is currently being processed BEFORE the fetch.
+      await db
+        .from("scrape_runs")
+        .update({
+          current_item: label,
+          current_item_index: index,
+          progress_updated_at: new Date().toISOString(),
+        })
+        .eq("id", runId);
+
       try {
         const detail = await scrapeMemberDetail(m.slz_id, { delayMs });
 
@@ -376,6 +402,16 @@ export async function runMemberDetailsScrape(
         const message = err instanceof Error ? err.message : String(err);
         errors.push(`slz_id=${m.slz_id}: ${message}`);
       }
+
+      // Publish counters after each member so the modal progress bar moves.
+      await db
+        .from("scrape_runs")
+        .update({
+          items_processed: processed,
+          items_failed: failed,
+          progress_updated_at: new Date().toISOString(),
+        })
+        .eq("id", runId);
     });
 
     const status: ScrapeStatus = failed === 0 ? "success" : "partial";

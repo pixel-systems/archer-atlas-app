@@ -154,6 +154,10 @@ export interface Database {
           finished_at: string | null;
           items_processed: number;
           items_failed: number;
+          items_total: number | null;
+          current_item: string | null;
+          current_item_index: number | null;
+          progress_updated_at: string | null;
           errors: Record<string, unknown> | null;
           triggered_by: string | null;
         };
@@ -165,6 +169,10 @@ export interface Database {
           finished_at?: string | null;
           items_processed?: number;
           items_failed?: number;
+          items_total?: number | null;
+          current_item?: string | null;
+          current_item_index?: number | null;
+          progress_updated_at?: string | null;
           errors?: Record<string, unknown> | null;
           triggered_by?: string | null;
         };
