@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Loader2, Play, X, AlertTriangle } from "lucide-react";
 
-type Source = "all" | "members" | "member_details" | "awards" | "results_index" | "competitions";
+type Source = "all" | "members" | "member_details" | "awards" | "results_index" | "competitions" | "club_profiles";
 
 const SOURCES: { id: Source; label: string; query?: string }[] = [
   { id: "all", label: "Všetko" },
   { id: "members", label: "Členovia + Kluby" },
   { id: "member_details", label: "Detaily členov (30)", query: "limit=30" },
+  { id: "club_profiles", label: "Profily klubov" },
   { id: "awards", label: "Ocenenia" },
   { id: "results_index", label: "Súťaže (index)" },
   { id: "competitions", label: "Prehľad súťaží (refresh)" },

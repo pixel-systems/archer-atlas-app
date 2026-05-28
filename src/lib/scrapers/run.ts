@@ -5,6 +5,7 @@ import { scrapeMembers, type ScrapedMember } from "./members";
 import { scrapeAwards } from "./awards";
 import { scrapeResultsIndex, scrapeResultsArchive } from "./results-index";
 import { scrapeMemberDetail, memberDetailUrl, type DetailRow } from "./member-detail";
+import { scrapeClubProfiles } from "./club-profiles";
 import { withDelay } from "./http";
 
 type Admin = SupabaseClient<Database>;
@@ -227,9 +228,134 @@ export async function runResultsIndexScrape(triggeredBy: string | null = null): 
 export async function runAllScrapes(triggeredBy: string | null = null): Promise<RunOutcome[]> {
   // Members first (other scrapers may reference them).
   const members = await runMembersScrape(triggeredBy);
+  const clubProfiles = await runClubProfilesScrape(triggeredBy);
   const awards = await runAwardsScrape(triggeredBy);
   const results = await runResultsIndexScrape(triggeredBy);
-  return [members, awards, results];
+  return [members, clubProfiles, awards, results];
+}
+
+// ----------------------------------------------------------------------------
+// Club profiles (logo, website, contact) from https://slz.sk/index.php/klub
+// ----------------------------------------------------------------------------
+
+export async function runClubProfilesScrape(
+  triggeredBy: string | null = null,
+): Promise<RunOutcome> {
+  const db = createSupabaseAdminClient();
+  const runId = await startRun(db, "club_profiles", triggeredBy);
+  const errors: string[] = [];
+  let processed = 0;
+  let failed = 0;
+
+  try {
+    const profiles = await scrapeClubProfiles();
+
+    // Existing rows are keyed by slug derived from the members scraper. We try
+    // exact slug first, then fall back to a slug prefix/suffix match because
+    // slz.sk's clubs page uses slightly different wording for some clubs.
+    const { data: existing, error: listErr } = await db
+      .from("clubs")
+      .select("id, name, slug");
+    if (listErr) throw new Error(`load clubs: ${listErr.message}`);
+
+    const bySlug = new Map((existing ?? []).map((c) => [c.slug, c]));
+    const slugs = (existing ?? []).map((c) => c.slug);
+
+    await db
+      .from("scrape_runs")
+      .update({ items_total: profiles.length, progress_updated_at: new Date().toISOString() })
+      .eq("id", runId);
+
+    let index = 0;
+    for (const p of profiles) {
+      index += 1;
+      const label = `${p.name}${p.code ? ` (${p.code})` : ""}`;
+      await db
+        .from("scrape_runs")
+        .update({
+          current_item: label,
+          current_item_index: index,
+          progress_updated_at: new Date().toISOString(),
+        })
+        .eq("id", runId);
+
+      const match = bySlug.get(p.slug) ?? findFuzzy(slugs, p.slug);
+      const update = {
+        code: p.code,
+        logo_url: p.logoUrl,
+        website_url: p.websiteUrl,
+        contact_name: p.contactName,
+        contact_phone: p.contactPhone,
+        profile_scraped_at: new Date().toISOString(),
+      };
+
+      if (match) {
+        const target = typeof match === "string" ? bySlug.get(match)! : match;
+        const { error } = await db.from("clubs").update(update).eq("id", target.id);
+        if (error) {
+          failed += 1;
+          errors.push(`update ${p.slug}: ${error.message}`);
+        } else {
+          processed += 1;
+        }
+      } else {
+        // No existing row — insert a stub. Members may attach later.
+        const { error } = await db
+          .from("clubs")
+          .insert({ name: p.name, slug: p.slug, ...update });
+        if (error) {
+          failed += 1;
+          errors.push(`insert ${p.slug}: ${error.message}`);
+        } else {
+          processed += 1;
+        }
+      }
+
+      await db
+        .from("scrape_runs")
+        .update({
+          items_processed: processed,
+          items_failed: failed,
+          progress_updated_at: new Date().toISOString(),
+        })
+        .eq("id", runId);
+    }
+
+    const status: ScrapeStatus = failed === 0 ? "success" : "partial";
+    await finishRun(db, runId, status, processed, failed, errors);
+    return {
+      source: "club_profiles",
+      status,
+      itemsProcessed: processed,
+      itemsFailed: failed,
+      errors,
+      runId,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    errors.push(message);
+    await finishRun(db, runId, "failed", processed, failed, errors);
+    return {
+      source: "club_profiles",
+      status: "failed",
+      itemsProcessed: processed,
+      itemsFailed: failed,
+      errors,
+      runId,
+    };
+  }
+}
+
+/** Best-effort fuzzy match: pick a slug that contains the scraped slug or vice versa. */
+function findFuzzy(slugs: string[], target: string): string | null {
+  if (!target) return null;
+  // Prefer exact substring matches in either direction; require >= 4 chars to
+  // avoid false positives like "lkr" matching everything.
+  const candidates = slugs.filter(
+    (s) => s.length >= 4 && target.length >= 4 && (s.includes(target) || target.includes(s)),
+  );
+  if (candidates.length === 1) return candidates[0];
+  return null;
 }
 
 // ----------------------------------------------------------------------------
