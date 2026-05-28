@@ -1,7 +1,13 @@
 // Hand-maintained DB types. After deploying the SQL schema you can replace this
 // file with `supabase gen types typescript --project-id <id>`.
 
-export type ScrapeSource = "members" | "awards" | "results_index" | "result_pdf" | "all";
+export type ScrapeSource =
+  | "members"
+  | "member_details"
+  | "awards"
+  | "results_index"
+  | "result_pdf"
+  | "all";
 export type ScrapeStatus = "running" | "success" | "failed" | "partial";
 export type ClaimStatus = "pending" | "approved" | "rejected";
 export type AppRole = "user" | "admin";
@@ -29,11 +35,18 @@ export interface Database {
           category_target: string | null;
           category_3d: string | null;
           last_scraped_at: string | null;
+          detail_scraped_at: string | null;
+          detail_url: string | null;
           created_at: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["members"]["Row"], "id" | "created_at"> & {
+        Insert: Omit<
+          Database["public"]["Tables"]["members"]["Row"],
+          "id" | "created_at" | "detail_scraped_at" | "detail_url"
+        > & {
           id?: string;
           created_at?: string;
+          detail_scraped_at?: string | null;
+          detail_url?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["members"]["Insert"]>;
         Relationships: Rels;
@@ -162,6 +175,55 @@ export interface Database {
         Row: { user_id: string; role: AppRole; created_at: string };
         Insert: { user_id: string; role: AppRole; created_at?: string };
         Update: Partial<Database["public"]["Tables"]["app_roles"]["Insert"]>;
+        Relationships: Rels;
+      };
+      member_personal_bests: {
+        Row: {
+          id: string;
+          member_id: string;
+          score: number | null;
+          achieved_on: string | null;
+          competition_name: string | null;
+          discipline: string | null;
+          setup: string | null;
+          category: string | null;
+          division: string | null;
+          created_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["member_personal_bests"]["Row"],
+          "id" | "created_at"
+        > & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["member_personal_bests"]["Insert"]>;
+        Relationships: Rels;
+      };
+      member_season_results: {
+        Row: {
+          id: string;
+          member_id: string;
+          season: number;
+          score: number | null;
+          achieved_on: string | null;
+          competition_name: string | null;
+          discipline: string | null;
+          setup: string | null;
+          category: string | null;
+          division: string | null;
+          is_season_max: boolean;
+          created_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["member_season_results"]["Row"],
+          "id" | "created_at" | "is_season_max"
+        > & {
+          id?: string;
+          created_at?: string;
+          is_season_max?: boolean;
+        };
+        Update: Partial<Database["public"]["Tables"]["member_season_results"]["Insert"]>;
         Relationships: Rels;
       };
     };

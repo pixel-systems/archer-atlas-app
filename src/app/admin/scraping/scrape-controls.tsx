@@ -4,11 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Play } from "lucide-react";
 
-type Source = "all" | "members" | "awards" | "results_index";
+type Source = "all" | "members" | "member_details" | "awards" | "results_index";
 
-const SOURCES: { id: Source; label: string }[] = [
+const SOURCES: { id: Source; label: string; query?: string }[] = [
   { id: "all", label: "Všetko" },
   { id: "members", label: "Členovia + Kluby" },
+  { id: "member_details", label: "Detaily členov (30)", query: "limit=30" },
   { id: "awards", label: "Ocenenia" },
   { id: "results_index", label: "Súťaže (index)" },
 ];
@@ -22,7 +23,9 @@ export function ScrapeControls() {
     setRunning(source);
     setMessage(null);
     try {
-      const res = await fetch(`/api/admin/scrape?source=${source}`, { method: "POST" });
+      const cfg = SOURCES.find((s) => s.id === source);
+      const qs = cfg?.query ? `&${cfg.query}` : "";
+      const res = await fetch(`/api/admin/scrape?source=${source}${qs}`, { method: "POST" });
       const body = await res.json();
       if (!res.ok) {
         setMessage(body.error ?? `HTTP ${res.status}`);
