@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 function GoogleIcon() {
@@ -35,8 +36,18 @@ const REDIRECT_PATH = "/auth/callback";
 type Provider = "google" | "facebook" | "apple";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginInner />
+    </Suspense>
+  );
+}
+
+function LoginInner() {
+  const params = useSearchParams();
+  const callbackError = params.get("error");
   const [loading, setLoading] = useState<Provider | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(callbackError);
 
   async function signIn(provider: Provider) {
     try {
