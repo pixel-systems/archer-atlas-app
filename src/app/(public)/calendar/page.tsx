@@ -1,9 +1,10 @@
 import { CalendarDays, ExternalLink } from "lucide-react";
 import { PageShell } from "@/components/layout/site-shell";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata = {
-  title: "Kalendár — Archer Atlas",
-  description: "Kalendár lukostreleckých podujatí a súťaží v Slovenskom lukostreleckom zväze.",
+  title: "Calendar — Archer Atlas",
+  description: "Slovak Archery Federation events and competitions calendar.",
 };
 
 // Re-build at most once an hour; the iframe content itself is always live anyway.
@@ -58,8 +59,9 @@ const PUBLIC_OPEN_URL = `https://calendar.google.com/calendar/u/0/r?${CALENDAR_S
   (s) => `cid=${s}`,
 ).join("&")}`;
 
-export default function CalendarPage() {
+export default async function CalendarPage() {
   const embedUrl = buildEmbedUrl("AGENDA");
+  const t = await getT();
 
   return (
     <PageShell>
@@ -67,11 +69,9 @@ export default function CalendarPage() {
         <div>
           <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
             <CalendarDays className="h-7 w-7 text-emerald-600" />
-            Kalendár podujatí
+            {t.calendar.title}
           </h1>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-            Súhrn podujatí, súťaží a tréningov z verejných Google kalendárov SLZ.
-          </p>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{t.calendar.subtitle}</p>
         </div>
         <a
           href={PUBLIC_OPEN_URL}
@@ -79,14 +79,14 @@ export default function CalendarPage() {
           rel="noreferrer"
           className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
-          Otvoriť v Google Calendar <ExternalLink className="h-3.5 w-3.5" />
+          {t.calendar.openInGoogle} <ExternalLink className="h-3.5 w-3.5" />
         </a>
       </header>
 
       <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
         <div className="flex items-center justify-between border-b border-zinc-100 bg-zinc-50/50 px-4 py-2 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950/50">
-          <span>Týždeň začína v pondelok · Časová zóna: Europe/Bratislava</span>
-          <span className="hidden sm:inline">7 zdrojových kalendárov</span>
+          <span>{t.calendar.wkstInfo}</span>
+          <span className="hidden sm:inline">{t.calendar.sources}</span>
         </div>
         <div className="relative h-[800px] w-full bg-white">
           <iframe
@@ -101,20 +101,25 @@ export default function CalendarPage() {
       </div>
 
       <section className="mt-6 grid gap-4 sm:grid-cols-3">
-        <ViewLink mode="MONTH" label="Mesiac" />
-        <ViewLink mode="WEEK" label="Týždeň" />
-        <ViewLink mode="AGENDA" label="Agenda" />
+        <ViewLink mode="MONTH" label={t.calendar.viewMonth} openLabel={t.calendar.openView} />
+        <ViewLink mode="WEEK" label={t.calendar.viewWeek} openLabel={t.calendar.openView} />
+        <ViewLink mode="AGENDA" label={t.calendar.viewAgenda} openLabel={t.calendar.openView} />
       </section>
 
-      <p className="mt-6 text-xs text-zinc-500">
-        Zdroj dát: verejné Google kalendáre Slovenského lukostreleckého zväzu a partnerských skupín.
-        Pre prihlásenie na podujatia použite oficiálne stránky organizátora.
-      </p>
+      <p className="mt-6 text-xs text-zinc-500">{t.calendar.disclaimer}</p>
     </PageShell>
   );
 }
 
-function ViewLink({ mode, label }: { mode: "AGENDA" | "MONTH" | "WEEK"; label: string }) {
+function ViewLink({
+  mode,
+  label,
+  openLabel,
+}: {
+  mode: "AGENDA" | "MONTH" | "WEEK";
+  label: string;
+  openLabel: string;
+}) {
   return (
     <a
       href={buildEmbedUrl(mode)}
@@ -122,7 +127,9 @@ function ViewLink({ mode, label }: { mode: "AGENDA" | "MONTH" | "WEEK"; label: s
       rel="noreferrer"
       className="group flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm hover:border-emerald-400 hover:bg-emerald-50/40 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/30"
     >
-      <span className="font-medium">Otvoriť pohľad: {label}</span>
+      <span className="font-medium">
+        {openLabel}: {label}
+      </span>
       <ExternalLink className="h-4 w-4 text-zinc-400 group-hover:text-emerald-600" />
     </a>
   );

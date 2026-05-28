@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, Trophy, Users } from "lucide-react";
 import { PageShell } from "@/components/layout/site-shell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 
 interface CompetitionsPageProps {
   searchParams: Promise<{ q?: string; page?: string; season?: string }>;
@@ -16,6 +17,7 @@ export default async function CompetitionsPage({ searchParams }: CompetitionsPag
   const page = Math.max(1, Number.parseInt(pageStr ?? "1", 10) || 1);
   const season = seasonStr ? Number.parseInt(seasonStr, 10) : NaN;
   const supabase = await createSupabaseServerClient();
+  const t = await getT();
 
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
@@ -64,9 +66,9 @@ export default async function CompetitionsPage({ searchParams }: CompetitionsPag
     <PageShell>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Súťaže</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t.competitions.title}</h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-300">
-            Prehľad súťaží odvodených z výsledkov členov. Celkom {total} súťaží.
+            {t.competitions.subtitle} {total} {t.common.total.toLowerCase()}.
           </p>
         </div>
         <form className="flex items-center gap-2">
@@ -74,7 +76,7 @@ export default async function CompetitionsPage({ searchParams }: CompetitionsPag
             type="search"
             name="q"
             defaultValue={q}
-            placeholder="Hľadať podľa názvu…"
+            placeholder={t.common.searchPlaceholder}
             className="w-72 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-zinc-700 dark:bg-zinc-900"
           />
           {Number.isFinite(season) && <input type="hidden" name="season" value={season} />}
@@ -82,14 +84,14 @@ export default async function CompetitionsPage({ searchParams }: CompetitionsPag
             type="submit"
             className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900"
           >
-            Hľadať
+            {t.common.search}
           </button>
         </form>
       </header>
 
       {seasons.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-1 text-xs">
-          <span className="mr-2 text-zinc-500">Sezóna:</span>
+          <span className="mr-2 text-zinc-500">{t.competitions.season}:</span>
           <Link
             href={buildHref({ season: "", page: 1 })}
             prefetch={false}
@@ -99,7 +101,7 @@ export default async function CompetitionsPage({ searchParams }: CompetitionsPag
                 : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
             }`}
           >
-            všetky
+            —
           </Link>
           {seasons.map((y) => (
             <Link
@@ -128,12 +130,12 @@ export default async function CompetitionsPage({ searchParams }: CompetitionsPag
             <table className="w-full text-sm">
               <thead className="bg-zinc-50 text-left text-xs uppercase text-zinc-500 dark:bg-zinc-950 dark:text-zinc-400">
                 <tr>
-                  <Th>Dátum</Th>
-                  <Th>Názov</Th>
-                  <Th>Účastníci</Th>
-                  <Th>Kluby</Th>
-                  <Th>Top skóre</Th>
-                  <Th>Disciplíny</Th>
+                  <Th>{t.competitions.date}</Th>
+                  <Th>{t.competitions.name}</Th>
+                  <Th>{t.competitions.athletes}</Th>
+                  <Th>{t.competitions.clubs}</Th>
+                  <Th>{t.competitions.topScore}</Th>
+                  <Th>{t.competitions.disciplines}</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -155,7 +157,7 @@ export default async function CompetitionsPage({ searchParams }: CompetitionsPag
                       <span className="inline-flex items-center gap-1">
                         <Users className="h-3.5 w-3.5 text-zinc-400" />
                         {r.athletes_count}
-                        <span className="text-xs text-zinc-400">/ {r.entries_count} zápisov</span>
+                        <span className="text-xs text-zinc-400">/ {r.entries_count} {t.competitions.entries}</span>
                       </span>
                     </Td>
                     <Td className="text-zinc-600 dark:text-zinc-300">{r.clubs_count}</Td>
@@ -180,14 +182,14 @@ export default async function CompetitionsPage({ searchParams }: CompetitionsPag
           {totalPages > 1 && (
             <nav className="mt-4 flex items-center justify-between text-sm">
               <span className="text-zinc-500">
-                Strana {page} z {totalPages}
+                {t.common.page} {page} {t.common.of} {totalPages}
               </span>
               <div className="flex items-center gap-1">
                 <PagerLink href={buildHref({ page: page - 1 })} disabled={page <= 1}>
-                  <ChevronLeft className="h-4 w-4" /> Predchádzajúca
+                  <ChevronLeft className="h-4 w-4" /> {t.common.previous}
                 </PagerLink>
                 <PagerLink href={buildHref({ page: page + 1 })} disabled={page >= totalPages}>
-                  Ďalšia <ChevronRight className="h-4 w-4" />
+                  {t.common.next} <ChevronRight className="h-4 w-4" />
                 </PagerLink>
               </div>
             </nav>
