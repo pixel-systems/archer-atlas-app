@@ -67,11 +67,14 @@ export default async function TrainingListPage() {
               {(sessions ?? []).map((s) => {
                 const fmt = Array.isArray(s.format) ? s.format[0] : s.format;
                 return (
-                  <tr key={s.id}>
+                  <tr
+                    key={s.id}
+                    className="relative cursor-pointer transition-colors hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20"
+                  >
                     <td className="px-4 py-3">
                       <Link
                         href={`/profile/training/${s.id}`}
-                        className="font-medium text-emerald-700 hover:underline dark:text-emerald-400"
+                        className="font-medium text-emerald-700 hover:underline after:absolute after:inset-0 after:content-[''] dark:text-emerald-400"
                       >
                         {new Date(s.session_date).toLocaleDateString("sk-SK")}
                       </Link>
