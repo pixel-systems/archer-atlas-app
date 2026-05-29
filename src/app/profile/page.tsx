@@ -36,6 +36,12 @@ export default async function ProfilePage() {
         </div>
         <div className="flex items-center gap-2">
           <a
+            href="/profile/equipment"
+            className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            Moja výbava →
+          </a>
+          <a
             href="/profile/training"
             className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
           >

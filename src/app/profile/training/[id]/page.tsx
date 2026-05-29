@@ -25,7 +25,7 @@ export default async function TrainingSessionPage({
   const { data: session } = await supabase
     .from("training_sessions")
     .select(
-      "id, session_date, division, age_category, bow_style, location, weather, notes, total_score, total_arrows, format:training_formats(*)",
+      "id, session_date, division, age_category, bow_style, location, weather, notes, total_score, total_arrows, bow_setup_id, format:training_formats(*), bow_setup:equipment_bow_setups(id, name, bow_type, brand, model, draw_weight_lbs, riser:equipment_risers(name, brand, model), limbs:equipment_limbs(name, brand, model, draw_weight_lbs), arrows:equipment_arrows(name, brand, model, spine, shaft_type))",
     )
     .eq("id", id)
     .eq("user_id", user.id)
@@ -36,6 +36,7 @@ export default async function TrainingSessionPage({
     | TrainingFormatRow
     | null;
   if (!format) notFound();
+  const setup = Array.isArray(session.bow_setup) ? session.bow_setup[0] : session.bow_setup;
 
   const { data: ends } = await supabase
     .from("training_session_ends")
@@ -86,6 +87,66 @@ export default async function TrainingSessionPage({
           <p className="mt-4 whitespace-pre-wrap rounded-md bg-zinc-50 p-3 text-sm text-zinc-700 dark:bg-zinc-950 dark:text-zinc-200">
             {session.notes}
           </p>
+        )}
+        {setup && (
+          <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50/60 p-3 text-sm dark:border-emerald-900 dark:bg-emerald-950/40">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                  Bow setup
+                </p>
+                <p className="font-semibold">{setup.name}</p>
+              </div>
+              <Link
+                href="/profile/equipment"
+                className="text-xs text-emerald-700 hover:underline dark:text-emerald-400"
+              >
+                spravovať →
+              </Link>
+            </div>
+            <ul className="mt-2 grid gap-1 text-xs text-zinc-700 dark:text-zinc-200 sm:grid-cols-2">
+              <li>
+                <span className="text-zinc-500">Typ luku:</span> {String(setup.bow_type)}
+                {setup.draw_weight_lbs ? ` · ${setup.draw_weight_lbs} lbs` : ""}
+              </li>
+              {(() => {
+                const r = Array.isArray(setup.riser) ? setup.riser[0] : setup.riser;
+                return r ? (
+                  <li>
+                    <span className="text-zinc-500">Riser:</span>{" "}
+                    {[r.brand, r.model].filter(Boolean).join(" ") || r.name}
+                  </li>
+                ) : null;
+              })()}
+              {(() => {
+                const l = Array.isArray(setup.limbs) ? setup.limbs[0] : setup.limbs;
+                return l ? (
+                  <li>
+                    <span className="text-zinc-500">Limby:</span>{" "}
+                    {[l.brand, l.model].filter(Boolean).join(" ") || l.name}
+                    {l.draw_weight_lbs ? ` · ${l.draw_weight_lbs} lbs` : ""}
+                  </li>
+                ) : null;
+              })()}
+              {(() => {
+                const a = Array.isArray(setup.arrows) ? setup.arrows[0] : setup.arrows;
+                return a ? (
+                  <li>
+                    <span className="text-zinc-500">Šípy:</span>{" "}
+                    {[a.brand, a.model].filter(Boolean).join(" ") || a.name}
+                    {a.spine ? ` · spine ${a.spine}` : ""}
+                    {a.shaft_type ? ` · ${a.shaft_type}` : ""}
+                  </li>
+                ) : null;
+              })()}
+              {!setup.riser && !setup.limbs && (setup.brand || setup.model) && (
+                <li>
+                  <span className="text-zinc-500">Luk:</span>{" "}
+                  {[setup.brand, setup.model].filter(Boolean).join(" ")}
+                </li>
+              )}
+            </ul>
+          </div>
         )}
       </header>
 
