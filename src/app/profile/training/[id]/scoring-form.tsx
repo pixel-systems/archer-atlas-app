@@ -10,6 +10,12 @@ import {
   sumArrows,
   countScoredArrows,
 } from "@/lib/training/formats";
+import {
+  arrowCellClasses,
+  computeArrowStats,
+  summaryChipClasses,
+  summaryLabelOrder,
+} from "@/lib/training/scoring";
 
 export interface EndRow {
   id: string;
@@ -34,6 +40,20 @@ export function ScoringForm({ sessionId, scoringType, initialEnds, isCustom }: P
   const [error, setError] = useState<string | null>(null);
   const allowed = useMemo(() => allowedArrowValues(scoringType), [scoringType]);
 
+  // Maximum scoring value per arrow for the active face. Used by Skill and the
+  // average column. Derived from `allowed` so it stays correct for every
+  // ScoringType (10 for 10-zone, 6 for WA field, 11 for WA 3D, 21 for IFAA
+  // animal, etc.). Custom rounds fall back to 10.
+  const maxPerArrow = useMemo(() => {
+    if (allowed.length === 0) return 10;
+    let m = 0;
+    for (const a of allowed) {
+      const n = arrowToNumber(a);
+      if (n != null && n > m) m = n;
+    }
+    return m || 10;
+  }, [allowed]);
+
   // Group ends by distance_label, preserving order.
   const groups = useMemo(() => {
     const out: { distance_label: string | null; rows: EndRow[] }[] = [];
@@ -56,6 +76,13 @@ export function ScoringForm({ sessionId, scoringType, initialEnds, isCustom }: P
     () => ends.reduce((acc, e) => acc + countScoredArrows(e.arrows), 0),
     [ends],
   );
+
+  // Whole-session statistics for the bottom summary panel.
+  const roundStats = useMemo(() => {
+    const allArrows: string[] = [];
+    for (const e of ends) for (const a of e.arrows) allArrows.push(a);
+    return computeArrowStats(allArrows, maxPerArrow);
+  }, [ends, maxPerArrow]);
 
   function updateArrow(endIdx: number, arrowIdx: number, raw: string) {
     const v = raw.trim().toUpperCase();
@@ -214,8 +241,9 @@ export function ScoringForm({ sessionId, scoringType, initialEnds, isCustom }: P
                         #{i + 1}
                       </th>
                     ))}
-                    <th className="px-3 py-2 font-medium text-right">Σ</th>
-                    <th className="px-3 py-2 font-medium text-right">Cum</th>
+                    <th className="px-3 py-2 font-medium text-right">Avg</th>
+                    <th className="px-3 py-2 font-medium text-right">Total</th>
+                    <th className="px-3 py-2 font-medium text-right">Score</th>
                     {isCustom && <th className="px-2 py-2"></th>}
                   </tr>
                 </thead>
@@ -223,6 +251,8 @@ export function ScoringForm({ sessionId, scoringType, initialEnds, isCustom }: P
                   {g.rows.map((row, ri) => {
                     const idx = groupStartIdx + ri;
                     const endTotal = sumArrows(row.arrows);
+                    const endScored = countScoredArrows(row.arrows);
+                    const endAvg = endScored > 0 ? endTotal / endScored : 0;
                     // Cumulative within this group only.
                     const cum = g.rows
                       .slice(0, ri + 1)
@@ -233,29 +263,22 @@ export function ScoringForm({ sessionId, scoringType, initialEnds, isCustom }: P
                           {row.end_number}
                         </td>
                         {row.arrows.map((a, ai) => {
-                          const num = arrowToNumber(a);
-                          const colour =
-                            num == null
-                              ? ""
-                              : num === 0
-                                ? "text-zinc-400"
-                                : num >= 9
-                                  ? "text-amber-600 dark:text-amber-400 font-semibold"
-                                  : num >= 6
-                                    ? "text-emerald-600 dark:text-emerald-400"
-                                    : "text-zinc-700 dark:text-zinc-200";
+                          const cellClasses = arrowCellClasses(a);
                           return (
                             <td key={ai} className="px-1 py-1">
                               <input
                                 value={a}
                                 onChange={(e) => updateArrow(idx, ai, e.target.value)}
-                                className={`w-10 rounded border border-zinc-300 bg-white px-1 py-1 text-center font-mono text-sm dark:border-zinc-700 dark:bg-zinc-950 ${colour}`}
+                                className={`w-10 rounded border px-1 py-1 text-center font-mono text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 ${cellClasses}`}
                                 inputMode="text"
                                 maxLength={2}
                               />
                             </td>
                           );
                         })}
+                        <td className="px-3 py-1.5 text-right font-mono text-zinc-600 dark:text-zinc-300">
+                          {endScored > 0 ? endAvg.toFixed(2) : "—"}
+                        </td>
                         <td className="px-3 py-1.5 text-right font-mono font-semibold">
                           {endTotal}
                         </td>
@@ -283,6 +306,72 @@ export function ScoringForm({ sessionId, scoringType, initialEnds, isCustom }: P
           </section>
         );
       })}
+
+      <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-200">
+            Súhrn kola
+          </h2>
+          <span className="text-xs text-zinc-500">
+            {roundStats.scoredArrows} {roundStats.scoredArrows === 1 ? "šíp" : "šípov"}
+          </span>
+        </header>
+
+        <div className="mb-4 flex flex-wrap gap-2">
+          {summaryLabelOrder(allowed).map((label) => {
+            const count = roundStats.counts[label] ?? 0;
+            return (
+              <div
+                key={label}
+                className={`flex min-w-[3rem] items-center gap-1 rounded px-2 py-1 text-xs font-mono ${summaryChipClasses(label)} ${count === 0 ? "opacity-30" : ""}`}
+              >
+                <span className="font-bold">{label}</span>
+                <span>×</span>
+                <span>{count}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-950">
+            <dt className="text-[10px] uppercase tracking-wide text-zinc-500">
+              Total score
+            </dt>
+            <dd className="mt-1 font-mono text-2xl font-bold text-emerald-700 dark:text-emerald-400">
+              {roundStats.total}
+            </dd>
+          </div>
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-950">
+            <dt className="text-[10px] uppercase tracking-wide text-zinc-500">
+              Priemer / šíp
+            </dt>
+            <dd className="mt-1 font-mono text-2xl font-bold">
+              {roundStats.scoredArrows > 0 ? roundStats.average.toFixed(2) : "—"}
+            </dd>
+          </div>
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-950">
+            <dt className="text-[10px] uppercase tracking-wide text-zinc-500">
+              Gold %
+            </dt>
+            <dd className="mt-1 font-mono text-2xl font-bold text-amber-600 dark:text-amber-400">
+              {roundStats.scoredArrows > 0 ? `${roundStats.goldPercent.toFixed(1)}%` : "—"}
+            </dd>
+            <p className="mt-0.5 text-[10px] text-zinc-500">X + 10 + 9</p>
+          </div>
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-950">
+            <dt className="text-[10px] uppercase tracking-wide text-zinc-500">
+              Skill
+            </dt>
+            <dd className="mt-1 font-mono text-2xl font-bold text-blue-600 dark:text-blue-400">
+              {roundStats.scoredArrows > 0 ? roundStats.skill.toFixed(1) : "—"}
+            </dd>
+            <p className="mt-0.5 text-[10px] text-zinc-500">
+              ArcherySuccess (avg / max × 100)
+            </p>
+          </div>
+        </dl>
+      </section>
 
       <div className="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
         <div className="text-sm">
