@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Database, ShieldCheck } from "lucide-react";
+import { Database, ShieldCheck, Users } from "lucide-react";
 import { PageShell } from "@/components/layout/site-shell";
 import { getCurrentRole } from "@/lib/auth/roles";
 
@@ -22,6 +22,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </TabLink>
         <TabLink href="/admin/claims" icon={<ShieldCheck className="h-4 w-4" />}>
           Žiadosti o prepojenie
+        </TabLink>
+        <TabLink href="/admin/roles" icon={<Users className="h-4 w-4" />}>
+          Roly
         </TabLink>
       </nav>
       {children}
