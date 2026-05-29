@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { Avatar } from "@/components/avatar";
 
 interface Props {
   initial: {
@@ -10,9 +11,11 @@ interface Props {
     avatar_url: string;
     contact_email: string;
   };
+  /** Avatar URL discovered from the OAuth provider (Google "picture", etc.) — used as a one-click suggestion. */
+  oauthAvatarUrl?: string | null;
 }
 
-export function ProfileForm({ initial }: Props) {
+export function ProfileForm({ initial, oauthAvatarUrl }: Props) {
   const [form, setForm] = useState(initial);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -49,8 +52,21 @@ export function ProfileForm({ initial }: Props) {
     }
   }
 
+  const showOauthHint =
+    oauthAvatarUrl &&
+    oauthAvatarUrl !== form.avatar_url &&
+    !form.avatar_url;
+
   return (
     <form onSubmit={onSubmit} className="space-y-4">
+      <div className="flex items-center gap-4">
+        <Avatar url={form.avatar_url || null} name={form.display_name} size={64} />
+        <div className="text-xs text-zinc-500">
+          Náhľad profilovej fotky. Pre zmenu vložte URL nižšie alebo použite
+          obrázok z OIDC poskytovateľa.
+        </div>
+      </div>
+
       <Field label="Zobrazované meno">
         <input
           className="input"
@@ -73,6 +89,26 @@ export function ProfileForm({ initial }: Props) {
           onChange={(e) => setForm({ ...form, avatar_url: e.target.value })}
           placeholder="https://…"
         />
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+          {showOauthHint && (
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, avatar_url: oauthAvatarUrl! })}
+              className="rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
+            >
+              Použiť fotku z OIDC ({new URL(oauthAvatarUrl!).hostname})
+            </button>
+          )}
+          {form.avatar_url && (
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, avatar_url: "" })}
+              className="rounded border border-zinc-300 px-2 py-0.5 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              Vyčistiť
+            </button>
+          )}
+        </div>
       </Field>
       <Field label="O mne">
         <textarea

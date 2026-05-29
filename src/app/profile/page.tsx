@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/layout/site-shell";
+import { Avatar } from "@/components/avatar";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/roles";
 import { ProfileForm } from "./profile-form";
@@ -19,6 +20,26 @@ export default async function ProfilePage() {
     .eq("id", user.id)
     .maybeSingle();
 
+  // OAuth providers store the picture under different keys. Prefer Supabase's
+  // normalized `avatar_url`, then fall back to provider-specific keys.
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const oauthAvatarUrl =
+    (typeof meta.avatar_url === "string" && meta.avatar_url) ||
+    (typeof meta.picture === "string" && meta.picture) ||
+    null;
+
+  // If the profile has no avatar yet but the user signed in via an OIDC
+  // provider that returned one, auto-adopt it on first visit so the avatar
+  // shows up everywhere without manual save.
+  let effectiveAvatar = profile?.avatar_url ?? null;
+  if (!effectiveAvatar && oauthAvatarUrl) {
+    await supabase
+      .from("profiles")
+      .update({ avatar_url: oauthAvatarUrl, updated_at: new Date().toISOString() })
+      .eq("id", user.id);
+    effectiveAvatar = oauthAvatarUrl;
+  }
+
   const { data: claims } = await supabase
     .from("member_claims")
     .select("id, status, note, created_at, member:members(first_name, last_name, license_number)")
@@ -29,10 +50,15 @@ export default async function ProfilePage() {
 
   return (
     <PageShell>
-      <header className="mb-6 flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Môj profil</h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-300">{user.email}</p>
+      <header className="mb-6 flex items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Avatar url={effectiveAvatar} name={profile?.display_name ?? user.email} size={64} />
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {profile?.display_name || "Môj profil"}
+            </h1>
+            <p className="text-sm text-zinc-600 dark:text-zinc-300">{user.email}</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <a
@@ -58,9 +84,10 @@ export default async function ProfilePage() {
             initial={{
               display_name: profile?.display_name ?? "",
               bio: profile?.bio ?? "",
-              avatar_url: profile?.avatar_url ?? "",
+              avatar_url: effectiveAvatar ?? "",
               contact_email: profile?.contact_email ?? user.email ?? "",
             }}
+            oauthAvatarUrl={oauthAvatarUrl}
           />
         </section>
 
