@@ -4,7 +4,7 @@ import { PageShell } from "@/components/layout/site-shell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/roles";
 import type { TrainingFormatRow, EquipmentBowSetupRow } from "@/lib/supabase/types";
-import { NewTrainingForm } from "./new-training-form";
+import { TrainingForm } from "../_form/training-form";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +33,7 @@ export default async function NewTrainingPage() {
       </Link>
       <h1 className="mt-1 mb-6 text-3xl font-bold tracking-tight">Nový tréning</h1>
 
-      <NewTrainingForm
+      <TrainingForm
         formats={(formatsRes.data ?? []) as TrainingFormatRow[]}
         bowSetups={(setupsRes.data ?? []) as EquipmentBowSetupRow[]}
       />

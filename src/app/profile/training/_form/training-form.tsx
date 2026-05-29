@@ -14,24 +14,44 @@ import {
   type FormatDistance,
 } from "@/lib/training/formats";
 
+export interface TrainingFormInitial {
+  id: string;
+  format_id: string;
+  session_date: string;
+  division: string | null;
+  age_category: string | null;
+  bow_style: string | null;
+  bow_setup_id: string | null;
+  location: string | null;
+  weather: string | null;
+  notes: string | null;
+}
+
 interface Props {
   formats: TrainingFormatRow[];
   bowSetups: EquipmentBowSetupRow[];
+  initial?: TrainingFormInitial;
 }
 
-export function NewTrainingForm({ formats, bowSetups }: Props) {
+export function TrainingForm({ formats, bowSetups, initial }: Props) {
   const router = useRouter();
-  const [formatId, setFormatId] = useState<string>(formats[0]?.id ?? "");
-  const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const [division, setDivision] = useState("");
-  const [ageCategory, setAgeCategory] = useState("");
-  const [bowStyle, setBowStyle] = useState("");
-  const [bowSetupId, setBowSetupId] = useState<string>(
-    bowSetups.find((s) => s.is_default)?.id ?? "",
+  const editing = Boolean(initial);
+
+  const [formatId, setFormatId] = useState<string>(
+    initial?.format_id ?? formats[0]?.id ?? "",
   );
-  const [location, setLocation] = useState("");
-  const [weather, setWeather] = useState("");
-  const [notes, setNotes] = useState("");
+  const [date, setDate] = useState<string>(
+    initial?.session_date ?? new Date().toISOString().slice(0, 10),
+  );
+  const [division, setDivision] = useState(initial?.division ?? "");
+  const [ageCategory, setAgeCategory] = useState(initial?.age_category ?? "");
+  const [bowStyle, setBowStyle] = useState(initial?.bow_style ?? "");
+  const [bowSetupId, setBowSetupId] = useState<string>(
+    initial?.bow_setup_id ?? bowSetups.find((s) => s.is_default)?.id ?? "",
+  );
+  const [location, setLocation] = useState(initial?.location ?? "");
+  const [weather, setWeather] = useState(initial?.weather ?? "");
+  const [notes, setNotes] = useState(initial?.notes ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,8 +62,8 @@ export function NewTrainingForm({ formats, bowSetups }: Props) {
 
   const isIfaa = selected?.organisation === "IFAA";
   const isCustom = selected?.scoring_type === "custom";
+  const formatChanged = editing && initial?.format_id !== formatId;
 
-  // Group formats for the picker
   const grouped = useMemo(() => {
     const groups: Record<string, TrainingFormatRow[]> = {};
     for (const f of formats) {
@@ -61,6 +81,14 @@ export function NewTrainingForm({ formats, bowSetups }: Props) {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selected) return;
+
+    if (formatChanged) {
+      const ok = window.confirm(
+        "Zmenou formátu sa zmaže aktuálne skórovanie tohto tréningu (ends) a nahradí sa prázdnou štruktúrou nového formátu. Pokračovať?",
+      );
+      if (!ok) return;
+    }
+
     setBusy(true);
     setError(null);
 
@@ -72,55 +100,75 @@ export function NewTrainingForm({ formats, bowSetups }: Props) {
       return;
     }
 
-    const { data: session, error: insErr } = await supabase
-      .from("training_sessions")
-      .insert({
-        user_id: userRes.user.id,
-        format_id: selected.id,
-        session_date: date,
-        division: division || null,
-        age_category: ageCategory || null,
-        bow_style: bowStyle || null,
-        location: location || null,
-        weather: weather || null,
-        notes: notes || null,
-        bow_setup_id: bowSetupId || null,
-        total_score: 0,
-        total_arrows: 0,
-      })
-      .select("id")
-      .single();
+    const payload = {
+      format_id: selected.id,
+      session_date: date,
+      division: division || null,
+      age_category: ageCategory || null,
+      bow_style: bowStyle || null,
+      location: location || null,
+      weather: weather || null,
+      notes: notes || null,
+      bow_setup_id: bowSetupId || null,
+    };
 
-    if (insErr || !session) {
-      setError(insErr?.message ?? "Nepodarilo sa uložiť.");
-      setBusy(false);
-      return;
-    }
+    let sessionId: string;
 
-    // Pre-build ends from format.default_distances. Custom (freeform) starts with one empty end.
-    const distances = (selected.default_distances ?? []) as FormatDistance[];
-    const stubs = distances.length
-      ? buildEndStubs(distances)
-      : [{ sort_order: 0, distance_label: "", end_number: 1, arrows: ["", "", "", "", "", ""] }];
+    if (editing && initial) {
+      const { error: updErr } = await supabase
+        .from("training_sessions")
+        .update(payload)
+        .eq("id", initial.id);
+      if (updErr) {
+        setError(updErr.message);
+        setBusy(false);
+        return;
+      }
+      sessionId = initial.id;
 
-    if (stubs.length > 0) {
-      const rows = stubs.map((s) => ({
-        session_id: session.id,
-        sort_order: s.sort_order,
-        distance_label: s.distance_label || null,
-        end_number: s.end_number,
-        arrows: s.arrows,
-        end_total: 0,
-      }));
-      const { error: endErr } = await supabase.from("training_session_ends").insert(rows);
-      if (endErr) {
-        setError(endErr.message);
+      if (formatChanged) {
+        const { error: delErr } = await supabase
+          .from("training_session_ends")
+          .delete()
+          .eq("session_id", sessionId);
+        if (delErr) {
+          setError(delErr.message);
+          setBusy(false);
+          return;
+        }
+        await supabase
+          .from("training_sessions")
+          .update({ total_score: 0, total_arrows: 0 })
+          .eq("id", sessionId);
+        await insertStubs(supabase, sessionId, selected);
+      }
+    } else {
+      const { data: session, error: insErr } = await supabase
+        .from("training_sessions")
+        .insert({
+          ...payload,
+          user_id: userRes.user.id,
+          total_score: 0,
+          total_arrows: 0,
+        })
+        .select("id")
+        .single();
+
+      if (insErr || !session) {
+        setError(insErr?.message ?? "Nepodarilo sa uložiť.");
+        setBusy(false);
+        return;
+      }
+      sessionId = session.id;
+      const stubErr = await insertStubs(supabase, sessionId, selected);
+      if (stubErr) {
+        setError(stubErr);
         setBusy(false);
         return;
       }
     }
 
-    router.push(`/profile/training/${session.id}`);
+    router.push(`/profile/training/${sessionId}`);
     router.refresh();
   }
 
@@ -159,6 +207,12 @@ export function NewTrainingForm({ formats, bowSetups }: Props) {
             )
             .join(" · ")}
           {selected.max_score ? ` · Max ${selected.max_score}` : ""}
+        </div>
+      )}
+
+      {formatChanged && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+          ⚠ Zmena formátu zmaže aktuálne zapísané ends tohto tréningu.
         </div>
       )}
 
@@ -287,8 +341,23 @@ export function NewTrainingForm({ formats, bowSetups }: Props) {
           disabled={busy || !formatId}
           className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
         >
-          {busy ? "Vytváram…" : "Vytvoriť tréning"}
+          {busy
+            ? editing
+              ? "Ukladám…"
+              : "Vytváram…"
+            : editing
+              ? "Uložiť zmeny"
+              : "Vytvoriť tréning"}
         </button>
+        {editing && (
+          <button
+            type="button"
+            onClick={() => router.push(`/profile/training/${initial!.id}`)}
+            className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            Zrušiť
+          </button>
+        )}
         {error && <span className="text-sm text-red-600">{error}</span>}
       </div>
 
@@ -314,6 +383,30 @@ export function NewTrainingForm({ formats, bowSetups }: Props) {
       `}</style>
     </form>
   );
+}
+
+async function insertStubs(
+  supabase: ReturnType<typeof createSupabaseBrowserClient>,
+  sessionId: string,
+  selected: TrainingFormatRow,
+): Promise<string | null> {
+  const distances = (selected.default_distances ?? []) as FormatDistance[];
+  const stubs = distances.length
+    ? buildEndStubs(distances)
+    : [{ sort_order: 0, distance_label: "", end_number: 1, arrows: ["", "", "", "", "", ""] }];
+
+  if (stubs.length === 0) return null;
+
+  const rows = stubs.map((s) => ({
+    session_id: sessionId,
+    sort_order: s.sort_order,
+    distance_label: s.distance_label || null,
+    end_number: s.end_number,
+    arrows: s.arrows,
+    end_total: 0,
+  }));
+  const { error: endErr } = await supabase.from("training_session_ends").insert(rows);
+  return endErr ? endErr.message : null;
 }
 
 function Field({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
