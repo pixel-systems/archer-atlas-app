@@ -81,6 +81,12 @@ export default async function TrainingSessionPage({
               ) : null}
             </p>
             <p className="text-xs text-zinc-500">{session.total_arrows ?? 0} šípov</p>
+            <Link
+              href={`/profile/training/${session.id}/edit`}
+              className="mt-2 inline-block text-xs text-emerald-700 hover:underline dark:text-emerald-400"
+            >
+              Upraviť tréning →
+            </Link>
           </div>
         </div>
         {session.notes && (
