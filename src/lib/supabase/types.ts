@@ -50,6 +50,7 @@ export interface TrainingSessionRow {
   notes: string | null;
   total_score: number | null;
   total_arrows: number | null;
+  bow_setup_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -63,6 +64,86 @@ export interface TrainingSessionEndRow {
   arrows: string[];
   end_total: number | null;
   created_at: string;
+}
+
+// ---------- Equipment row types ----------
+
+export type BowType =
+  | "recurve"
+  | "barebow"
+  | "compound"
+  | "longbow"
+  | "traditional"
+  | "horse_bow"
+  | "crossbow"
+  | "other";
+
+export interface EquipmentRiserRow {
+  id: string;
+  user_id: string;
+  name: string;
+  brand: string | null;
+  model: string | null;
+  length_inches: number | null;
+  handedness: "RH" | "LH" | null;
+  color: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EquipmentLimbRow {
+  id: string;
+  user_id: string;
+  name: string;
+  brand: string | null;
+  model: string | null;
+  length: "short" | "medium" | "long" | null;
+  draw_weight_lbs: number | null;
+  fitting: string | null;
+  material: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EquipmentArrowRow {
+  id: string;
+  user_id: string;
+  name: string;
+  brand: string | null;
+  model: string | null;
+  shaft_type: string | null;
+  spine: string | null;
+  length_inches: number | null;
+  point_grain: number | null;
+  pin: string | null;
+  nock: string | null;
+  fletching_type: string | null;
+  fletching_length: string | null;
+  fletching_color: string | null;
+  quantity: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EquipmentBowSetupRow {
+  id: string;
+  user_id: string;
+  name: string;
+  bow_type: BowType;
+  brand: string | null;
+  model: string | null;
+  draw_weight_lbs: number | null;
+  draw_length_inches: number | null;
+  riser_id: string | null;
+  limbs_id: string | null;
+  arrows_id: string | null;
+  is_default: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Database {
@@ -361,6 +442,7 @@ export interface Database {
           notes: string | null;
           total_score: number | null;
           total_arrows: number | null;
+          bow_setup_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -377,6 +459,7 @@ export interface Database {
           notes?: string | null;
           total_score?: number | null;
           total_arrows?: number | null;
+          bow_setup_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -405,6 +488,119 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["training_session_ends"]["Insert"]>;
+        Relationships: Rels;
+      };
+      equipment_risers: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          brand: string | null;
+          model: string | null;
+          length_inches: number | null;
+          handedness: "RH" | "LH" | null;
+          color: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["equipment_risers"]["Row"],
+          "id" | "created_at" | "updated_at"
+        > & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["equipment_risers"]["Insert"]>;
+        Relationships: Rels;
+      };
+      equipment_limbs: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          brand: string | null;
+          model: string | null;
+          length: "short" | "medium" | "long" | null;
+          draw_weight_lbs: number | null;
+          fitting: string | null;
+          material: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["equipment_limbs"]["Row"],
+          "id" | "created_at" | "updated_at"
+        > & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["equipment_limbs"]["Insert"]>;
+        Relationships: Rels;
+      };
+      equipment_arrows: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          brand: string | null;
+          model: string | null;
+          shaft_type: string | null;
+          spine: string | null;
+          length_inches: number | null;
+          point_grain: number | null;
+          pin: string | null;
+          nock: string | null;
+          fletching_type: string | null;
+          fletching_length: string | null;
+          fletching_color: string | null;
+          quantity: number | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["equipment_arrows"]["Row"],
+          "id" | "created_at" | "updated_at"
+        > & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["equipment_arrows"]["Insert"]>;
+        Relationships: Rels;
+      };
+      equipment_bow_setups: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          bow_type: BowType;
+          brand: string | null;
+          model: string | null;
+          draw_weight_lbs: number | null;
+          draw_length_inches: number | null;
+          riser_id: string | null;
+          limbs_id: string | null;
+          arrows_id: string | null;
+          is_default: boolean;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["equipment_bow_setups"]["Row"],
+          "id" | "created_at" | "updated_at" | "is_default"
+        > & {
+          id?: string;
+          is_default?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["equipment_bow_setups"]["Insert"]>;
         Relationships: Rels;
       };
     };

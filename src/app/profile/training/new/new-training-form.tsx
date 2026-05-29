@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import type { TrainingFormatRow } from "@/lib/supabase/types";
+import type { TrainingFormatRow, EquipmentBowSetupRow } from "@/lib/supabase/types";
+import { bowTypeLabel } from "@/lib/equipment";
 import {
   WA_DIVISIONS,
   WA_AGE_CATEGORIES,
@@ -15,15 +16,19 @@ import {
 
 interface Props {
   formats: TrainingFormatRow[];
+  bowSetups: EquipmentBowSetupRow[];
 }
 
-export function NewTrainingForm({ formats }: Props) {
+export function NewTrainingForm({ formats, bowSetups }: Props) {
   const router = useRouter();
   const [formatId, setFormatId] = useState<string>(formats[0]?.id ?? "");
   const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [division, setDivision] = useState("");
   const [ageCategory, setAgeCategory] = useState("");
   const [bowStyle, setBowStyle] = useState("");
+  const [bowSetupId, setBowSetupId] = useState<string>(
+    bowSetups.find((s) => s.is_default)?.id ?? "",
+  );
   const [location, setLocation] = useState("");
   const [weather, setWeather] = useState("");
   const [notes, setNotes] = useState("");
@@ -79,6 +84,7 @@ export function NewTrainingForm({ formats }: Props) {
         location: location || null,
         weather: weather || null,
         notes: notes || null,
+        bow_setup_id: bowSetupId || null,
         total_score: 0,
         total_arrows: 0,
       })
@@ -231,6 +237,40 @@ export function NewTrainingForm({ formats }: Props) {
         </Field>
       </div>
 
+      <Field
+        label={
+          <>
+            Bow setup{" "}
+            <a
+              href="/profile/equipment"
+              className="text-xs text-emerald-700 hover:underline dark:text-emerald-400"
+            >
+              spravovať výbavu →
+            </a>
+          </>
+        }
+      >
+        {bowSetups.length === 0 ? (
+          <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+            Zatiaľ nemáte vytvorený žiadny setup. Tréning môžete uložiť aj bez neho a priradiť ho neskôr.
+          </div>
+        ) : (
+          <select
+            className="input"
+            value={bowSetupId}
+            onChange={(e) => setBowSetupId(e.target.value)}
+          >
+            <option value="">— bez setupu —</option>
+            {bowSetups.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} · {bowTypeLabel(s.bow_type)}
+                {s.is_default ? "  ★" : ""}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
+
       <Field label="Poznámky">
         <textarea
           rows={3}
@@ -276,7 +316,7 @@ export function NewTrainingForm({ formats }: Props) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
     <label className="block">
       <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-500">
